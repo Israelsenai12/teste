@@ -42,7 +42,7 @@ def salvar():
             """, (user_id, slot, progresso))
             conn.commit()
 
-    return jsonify({"status": "salvo com sucesso"})
+    return jsonify({"status": "salvo com sucesso"}), 200
 
 @app.route("/carregar", methods=["GET"])
 def carregar():
