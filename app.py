@@ -11,6 +11,33 @@ CORS(app)
 # Use the database URL directly (ensure it's securely set in your environment)
 DB_URL = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_auPRq40myNjS@ep-tight-night-achloga2-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require")
 
+def create_table_if_not_exists():
+    """Cria as tabelas caso não existam."""
+    with psycopg2.connect(DB_URL) as conn:
+        with conn.cursor() as cur:
+            # Criação da tabela de usuários caso não exista
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS usuarios (
+                    id SERIAL PRIMARY KEY,
+                    email VARCHAR(255) UNIQUE NOT NULL
+                )
+            """)
+            # Criação da tabela de saves caso não exista
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS saves (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES usuarios(id),
+                    slot VARCHAR(50),
+                    game_data JSONB,
+                    salvo_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, slot)
+                )
+            """)
+            conn.commit()
+
+# Chama a função para garantir que as tabelas existam
+create_table_if_not_exists()
+
 @app.route("/salvar", methods=["POST"])
 def salvar():
     try:
@@ -71,6 +98,7 @@ def carregar():
                 row = cur.fetchone()
                 if row:
                     return jsonify({"progresso": json.loads(row["game_data"])})
+
                 return jsonify({"erro": "não encontrado"}), 404
     except Exception as e:
         return jsonify({"erro": str(e)}), 500
@@ -79,6 +107,7 @@ def carregar():
 @app.route("/")
 def home():
     return "API do jogo está online!"
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
