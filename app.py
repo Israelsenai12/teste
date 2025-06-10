@@ -1,12 +1,103 @@
-from flask import Flask
-import os
-from dotenv import load_dotenv
+import os, json
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
 
 app = Flask(__name__)
+CORS(app)
 
-# Carrega variáveis do Render (se existir)
-load_dotenv('/etc/secrets/.env')
+# Configuração do banco
+DB_NAME = os.environ.get("NEON_DB", "neondb")
+DB_USER = os.environ.get("NEON_USER", "user")
+DB_PASSWORD = os.environ.get("NEON_PASSWORD", "senha")
+DB_HOST = os.environ.get("NEON_HOST", "localhost")
+DB_PORT = os.environ.get("NEON_PORT", 5432)
+
+
+
+
+
+@app.route("/salvar", methods=["POST"])
+def salvar():
+    try:
+        data = request.json
+        email = data.get("email")
+        slot = data.get("slot", "slot1")
+        progresso = json.dumps(data.get("progresso", {}))
+
+        with psycopg2.connect(
+            dbname=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            host=DB_HOST,
+            port=DB_PORT,
+            sslmode="require"
+        ) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
+                user = cur.fetchone()
+                if not user:
+                    cur.execute("INSERT INTO usuarios (email) VALUES (%s) RETURNING id", (email,))
+                    user = cur.fetchone()
+                user_id = user[0]
+
+                cur.execute("""
+                    INSERT INTO saves (user_id, slot, game_data, salvo_em)
+                    VALUES (%s, %s, %s, now())
+                    ON CONFLICT (user_id, slot) DO UPDATE
+                    SET game_data = EXCLUDED.game_data,
+                        salvo_em = now()
+                """, (user_id, slot, progresso))
+                conn.commit()
+
+        return jsonify({"status": "salvo com sucesso"})
+
+
+
+
+
+
+
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+
+@app.route("/carregar", methods=["GET"])
+def carregar():
+    email = request.args.get("email")
+    slot = request.args.get("slot", "slot1")
+
+    try:
+        with psycopg2.connect(
+            dbname=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            host=DB_HOST,
+            port=DB_PORT,
+            sslmode="require"
+        ) as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT s.game_data
+                    FROM saves s
+                    JOIN usuarios u ON s.user_id = u.id
+                    WHERE u.email = %s AND s.slot = %s
+                    ORDER BY s.salvo_em DESC
+                    LIMIT 1
+                """, (email, slot))
+                row = cur.fetchone()
+                if row:
+                    return jsonify({"progresso": row["game_data"]})
+                return jsonify({"erro": "não encontrado"}), 404
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
 
 @app.route("/")
 def home():
-    return "Servidor funcionando no Render! 🎉"
+    return "API do jogo está online!"
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))Add commentMore actions
+    app.run(host="0.0.0.0", port=port)
+    
