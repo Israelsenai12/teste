@@ -20,6 +20,8 @@ def salvar():
     try:
         data = request.json
         email = data.get("email")
+        if not email:
+            return jsonify({"erro": "Email é obrigatório"}), 400
         slot = data.get("slot", "slot1")
         progresso = json.dumps(data.get("progresso", {}))
 
@@ -39,19 +41,23 @@ def salvar():
                     user = cur.fetchone()
                 user_id = user[0]
 
-                cur.execute("""
-                    INSERT INTO saves (user_id, slot, game_data, salvo_em)
-                    VALUES (%s, %s, %s, now())
-                    ON CONFLICT (user_id, slot) DO UPDATE
-                    SET game_data = EXCLUDED.game_data,
-                        salvo_em = now()
+                cur.execute(""" 
+                    INSERT INTO saves (user_id, slot, game_data, salvo_em) 
+                    VALUES (%s, %s, %s, now()) 
+                    ON CONFLICT (user_id, slot) DO UPDATE 
+                    SET game_data = EXCLUDED.game_data, 
+                        salvo_em = now() 
                 """, (user_id, slot, progresso))
                 conn.commit()
 
         return jsonify({"status": "salvo com sucesso"})
 
+    except psycopg2.Error as e:
+        return jsonify({"erro": f"Erro no banco de dados: {str(e)}"}), 500
+
     except Exception as e:
-        return jsonify({"erro": str(e)}), 500
+        return jsonify({"erro": f"Erro inesperado: {str(e)}"}), 500
+
 
 @app.route("/carregar", methods=["GET"])
 def carregar():
