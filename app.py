@@ -83,9 +83,29 @@ def carregar():
     except Exception as e:
         return jsonify({"erro": str(e)}), 500
 
+
 @app.route("/")
 def home():
-    return "API do jogo está online!"
+    # Coleta as informações de conexão
+    db_name = os.environ.get("NEON_DB", "neondb")
+    db_user = os.environ.get("NEON_USER", "user")
+    db_password = os.environ.get("NEON_PASSWORD", "senha")
+    db_host = os.environ.get("NEON_HOST", "localhost")
+    db_port = int(os.environ.get("NEON_PORT", 5432))
+    sslmode = "require" if os.environ.get("NEON_USE_SSL", "false").lower() == "true" else "disable"
+
+    # Monta a mensagem com as informações
+    info = (
+        "API do jogo está online!\n\n"
+        "Configurações do Banco de Dados:\n"
+        f"DB_NAME: {db_name}\n"
+        f"DB_USER: {db_user}\n"
+        f"DB_PASSWORD: {db_password}\n"
+        f"DB_HOST: {db_host}\n"
+        f"DB_PORT: {db_port}\n"
+        f"SSL Mode: {sslmode}"
+    )
+    return info
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
