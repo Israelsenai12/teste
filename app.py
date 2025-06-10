@@ -8,12 +8,8 @@ from psycopg2.extras import RealDictCursor
 app = Flask(__name__)
 CORS(app)
 
-DB_NAME = os.environ.get("NEON_DB", "neondb")
-DB_USER = os.environ.get("NEON_USER", "user")
-DB_PASSWORD = os.environ.get("NEON_PASSWORD", "senha")
-DB_HOST = os.environ.get("NEON_HOST", "localhost")
-DB_PORT = int(os.environ.get("NEON_PORT", 5432))
-sslmode = "require" if os.environ.get("NEON_USE_SSL", "false").lower() == "true" else "disable"
+# Use the database URL directly (ensure it's securely set in your environment)
+DB_URL = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_auPRq40myNjS@ep-tight-night-achloga2-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require")
 
 @app.route("/salvar", methods=["POST"])
 def salvar():
@@ -25,14 +21,8 @@ def salvar():
         slot = data.get("slot", "slot1")
         progresso = json.dumps(data.get("progresso", {}))
 
-        with psycopg2.connect(
-            dbname=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            host=DB_HOST,
-            port=DB_PORT,
-            sslmode=sslmode
-        ) as conn:
+        # Connect using the connection URL
+        with psycopg2.connect(DB_URL) as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
                 user = cur.fetchone()
@@ -53,9 +43,11 @@ def salvar():
         return jsonify({"status": "salvo com sucesso"})
 
     except psycopg2.Error as e:
+        print(f"Erro no banco de dados: {e}")
         return jsonify({"erro": f"Erro no banco de dados: {str(e)}"}), 500
 
     except Exception as e:
+        print(f"Erro inesperado: {e}")
         return jsonify({"erro": f"Erro inesperado: {str(e)}"}), 500
 
 
@@ -65,14 +57,8 @@ def carregar():
     slot = request.args.get("slot", "slot1")
 
     try:
-        with psycopg2.connect(
-            dbname=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            host=DB_HOST,
-            port=DB_PORT,
-            sslmode=sslmode
-        ) as conn:
+        # Connect using the connection URL
+        with psycopg2.connect(DB_URL) as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
                     SELECT s.game_data
@@ -92,26 +78,7 @@ def carregar():
 
 @app.route("/")
 def home():
-    # Coleta as informações de conexão
-    db_name = os.environ.get("NEON_DB", "neondb")
-    db_user = os.environ.get("NEON_USER", "user")
-    db_password = os.environ.get("NEON_PASSWORD", "senha")
-    db_host = os.environ.get("NEON_HOST", "localhost")
-    db_port = int(os.environ.get("NEON_PORT", 5432))
-    sslmode = "require" if os.environ.get("NEON_USE_SSL", "false").lower() == "true" else "disable"
-
-    # Monta a mensagem com as informações
-    info = (
-        "API do jogo está online!\n\n"
-        "Configurações do Banco de Dados:\n"
-        f"DB_NAME: {db_name}\n"
-        f"DB_USER: {db_user}\n"
-        f"DB_PASSWORD: {db_password}\n"
-        f"DB_HOST: {db_host}\n"
-        f"DB_PORT: {db_port}\n"
-        f"SSL Mode: {sslmode}"
-    )
-    return info
+    return "API do jogo está online!"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
