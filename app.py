@@ -1,23 +1,19 @@
-import os, json
+import os
+import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-
 app = Flask(__name__)
 CORS(app)
 
-# Configuração do banco
 DB_NAME = os.environ.get("NEON_DB", "neondb")
 DB_USER = os.environ.get("NEON_USER", "user")
 DB_PASSWORD = os.environ.get("NEON_PASSWORD", "senha")
 DB_HOST = os.environ.get("NEON_HOST", "localhost")
-DB_PORT = os.environ.get("NEON_PORT", 5432)
-
-
-
-
+DB_PORT = int(os.environ.get("NEON_PORT", 5432))
+sslmode = "require" if os.environ.get("NEON_USE_SSL", "false").lower() == "true" else "disable"
 
 @app.route("/salvar", methods=["POST"])
 def salvar():
@@ -33,7 +29,7 @@ def salvar():
             password=DB_PASSWORD,
             host=DB_HOST,
             port=DB_PORT,
-            sslmode="require"
+            sslmode=sslmode
         ) as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
@@ -54,12 +50,6 @@ def salvar():
 
         return jsonify({"status": "salvo com sucesso"})
 
-
-
-
-
-
-
     except Exception as e:
         return jsonify({"erro": str(e)}), 500
 
@@ -75,7 +65,7 @@ def carregar():
             password=DB_PASSWORD,
             host=DB_HOST,
             port=DB_PORT,
-            sslmode="require"
+            sslmode=sslmode
         ) as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
@@ -88,7 +78,7 @@ def carregar():
                 """, (email, slot))
                 row = cur.fetchone()
                 if row:
-                    return jsonify({"progresso": row["game_data"]})
+                    return jsonify({"progresso": json.loads(row["game_data"])})
                 return jsonify({"erro": "não encontrado"}), 404
     except Exception as e:
         return jsonify({"erro": str(e)}), 500
@@ -98,6 +88,5 @@ def home():
     return "API do jogo está online!"
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))Add commentMore actions
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-    
